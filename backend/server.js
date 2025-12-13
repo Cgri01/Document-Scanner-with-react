@@ -5,6 +5,8 @@ const multer = require('multer');
 const sharp = require('sharp');
 const path = require('path');
 const fs = require('fs');
+const PDFDocument = require('pdfkit');
+
 
 //express uygulaması olusturma:
 const app = express();
@@ -57,6 +59,7 @@ app.get("/api/test" , (req , res) => {
 const {createCanvas , loadImage} = require("canvas");
 const { text } = require('stream/consumers');
 const { error } = require('console');
+
 
 //Kenar tespit fonksiyonu:
 async function detectEdges(imagePath) {
@@ -152,6 +155,7 @@ async function extractTextFromImage(imagePath) {
             const { data } = await tesseract.recognize(imagePath , "eng" );
             const cleanedText = data.text.trim();
             const hasRealText = cleanedText.replace(/[\s\W_]+/g, '').length > 3;
+            const languageDetected = detectLanguge(cleanedText);
 
              return {
                 success: true,
@@ -274,6 +278,74 @@ async function analyzeImage(imagePath) {
     
 }
 
+//PDF oluşturma fonksiyonu:
+async function createPDF(text , title = "OCR Results"){
+    return new Promise((resolve , reject) => {
+        try {
+            const doc = new PDFDocument();
+            const pdfFilename = `text-${Date.now()}.pdf`;
+            const pdfPath = path.join("uploads" , pdfFilename);
+
+            const stream = fs.createWriteStream(pdfPath);
+            doc.pipe(stream);
+
+            //Başlık ekleme:
+            doc.fontSize(18).font("Helvetica-Bold").fillColor("#2c3e50").text(title , 50 , 50 , {align: "center"});
+            doc.moveDown();
+
+            //Metin ekleme:
+            doc.fontSize(11).font("Helvetica").fillColor("#34495e").text(text , {
+                align: "left",
+                width: 500,
+                lineGap: 4,
+                paragraphGap: 10
+            });
+            doc.end();
+
+            stream.on("finish" , () => {
+                resolve({
+                    success: true,
+                    pdfPath: pdfPath,
+                    pdfUrl: `/uploads/${pdfFilename}`,
+                    filename: pdfFilename
+                });
+            });
+
+            stream.on("error" , reject);
+        }
+        catch (error) {
+            reject(error);
+        }
+    });
+}
+
+//PDF Oluşturma endpointi:
+app.post("/api/generate-pdf" , upload.single("document") , async (req , res) => {
+    try {
+        if (!req.body.ocrText){
+            return res.status(400).json({ error: "Ocr text is required to generate PDF!!!"})
+        }
+
+        const { ocrText , title = "Scanned Document" , includeAnalysis = "false" } = req.body;
+
+        console.log("Generating PDF for text length:" , ocrText.length);
+
+        const pdfResult = await createPDF(ocrText , title);
+
+        res.json({
+            success: true,
+            message: "PDF generated successfully!!!",
+            pdf: pdfResult
+        });
+    } catch (error) {
+        console.error("Error during PDF generation:" , error);
+        res.status(500).json({
+            error: "Pdf could not created!!!",
+            details: error.message
+        });
+    }
+});
+
 
 //Resim yükleme endpointi:
 app.post("/api/upload" , upload.single("document") , async(req , res) => {
@@ -298,7 +370,17 @@ app.post("/api/upload" , upload.single("document") , async(req , res) => {
       const ocrResult = await extractTextFromImage(uploadedFile.path);
       console.log("OCR Completed");
 
+      //PDF Oluşturma:
+      let pdfResult = null;
+      if (ocrResult.success && ocrResult.hasText) {
+        try {
+            pdfResult = await createPDF(ocrResult.text , `Scanned Document - ${uploadedFile.originalname}`);
+            console.log("PDF automatically created");
 
+        } catch (pdfError) {
+            console.error("Automatic PDF creation error:" , pdfError);
+        }
+      } 
 
         res.json({
             success: true,
@@ -328,3 +410,4 @@ app.post("/api/upload" , upload.single("document") , async(req , res) => {
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 })
+    

@@ -10,6 +10,8 @@ function App() {
   const [uploadResult , setUploadResult] = useState(null);
   const [isLoading , setIsLoading] = useState(false);
   const [showCamera , setShowCamera] = useState(false);
+  const [pdfInfo , setPdfInfo] = useState(null);
+  const [isGeneratingPDF , setIsGeneratingPDF] = useState (false);
 
   const fileInputRef = useRef();
 
@@ -88,6 +90,45 @@ function App() {
   //Kamera Açma butonu:
   const handleCameraClick = () => {
     setShowCamera(true);
+  };
+
+  // PDF Oluşturma fonksiyonu:
+  const generatePDF = async (type = 'simple') => {
+    if (!uploadResult || !uploadResult.ocr || !uploadResult.ocr.text) {
+      alert('Please upload a file and complete OCR process first.');
+      return;
+    }
+
+    setIsGeneratingPDF(true);
+    
+    try {
+      let response;
+      
+      if (type === 'simple') {
+        // Simple PDF
+        response = await axios.post('http://localhost:5000/api/generate-pdf', {
+          ocrText: uploadResult.ocr.text,
+          title: `Scanned: ${uploadResult.file.originalname}`
+        });
+      }
+      
+
+      setPdfInfo(response.data.pdf);
+      console.log('PDF created:', response.data.pdf);
+      
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      alert('PDF creation error: ' + error.message);
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
+  // PDF download function
+  const downloadPDF = () => {
+    if (pdfInfo && pdfInfo.pdfUrl) {
+      window.open(`http://localhost:5000${pdfInfo.pdfUrl}`, '_blank');
+    }
   };
 
   return (
@@ -234,6 +275,31 @@ function App() {
                       )}
                     </div>
                   </div>
+
+                  {/* PDF Export */}
+                  {uploadResult.ocr.success && uploadResult.ocr.text && (
+                    <div className="pdf-section">
+                      <h5> PDF Export</h5>
+                      <div className="pdf-buttons">
+                        <button className="pdf-btn simple-pdf" onClick={ () => generatePDF("simple")} disabled = {isGeneratingPDF}>
+                          {isGeneratingPDF ? '⏳ Creating...' : ' Create PDF'}
+                        </button>
+                      </div>
+
+                      {/* PDF Bilgisi */}
+                      {pdfInfo && (
+                        <div className="pdf-info">
+                          <p> PDF Created successfully!!!</p>
+                          <button className="download*btn" onClick={downloadPDF}>
+                            Download Pdf
+                          </button>
+                          <span className="pdf-filename">{pdfInfo.filename}</span>
+
+                        </div>
+                      )}
+
+                    </div>
+                  )}
 
                   {/* OCR Bilgisi */}
                   <div className="ocr-info">
