@@ -6,6 +6,8 @@ const sharp = require('sharp');
 const path = require('path');
 const fs = require('fs');
 const PDFDocument = require('pdfkit');
+const natural = require('natural');
+const nlp = require('compromise');
 
 
 //express uygulaması olusturma:
@@ -59,6 +61,7 @@ app.get("/api/test" , (req , res) => {
 const {createCanvas , loadImage} = require("canvas");
 const { text } = require('stream/consumers');
 const { error } = require('console');
+const e = require('express');
 
 
 //Kenar tespit fonksiyonu:
@@ -139,6 +142,7 @@ async function extractTextFromImage(imagePath) {
 
         return {
             success: true,
+            rawText: data.text,
             text: cleanedText,
             confidence: Math.round(data.confidence),
             language: languageDetected,
@@ -187,17 +191,14 @@ async function extractTextFromImage(imagePath) {
 //Dil tespit fonksiyonu:
 function detectLanguge(text) {
     const turkishChars = /[çğıöşüÇĞİÖŞÜ]/;
-    //const englishChars = /[a-zA-Z]/;
+    const englishCommon = /\b(the|and|is|in|to|of|that|it|you|he|for|with|but|on|at|she|her|him|his|are|or)\b/gi;
 
-    const hasTurkish = turkishChars.test(text);
-    //const hasEnglish = englishChars.test(text);
-
-    if (hasTurkish) {
-        return "Turkish";
-    }
-    else {
-        return "English";
-    }
+    const turkishCount = (text.match(turkishChars) || []).length;
+    const englishCount = (text.match(englishCommon) || []).length;
+    
+    if (turkishCount > englishCount * 2) return 'Turkish';
+    if (englishCount > turkishCount * 2) return 'English';
+    return 'Unknown';
 }
 
 //Basit görüntü analizi:
@@ -278,6 +279,65 @@ async function analyzeImage(imagePath) {
     
 }
 
+//Metin Temizleme ve iyileştirme fonksiyonu:
+function enhanceOCRText(text) {
+    if (!text || text.trim().length === 0) {
+        return {
+            original: text,
+            enhanced: text,
+            improvements: [],
+            confidence: 0
+        };
+    }
+
+    const originalText = text;
+    let enhancedText = text;
+    const improvements = [];
+
+    //Gereksiz boşlukları temizleme
+    const beforeSpacing = enhancedText;
+    enhancedText = enhancedText
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\s+\./g, '.')
+    .replace(/\s+,/g, ',')
+    .trim();    
+
+    if (beforeSpacing !== enhancedText) {
+        improvements.push("Extra spaces removed");
+    }
+
+    //Cümle başı büyük harf yapma
+    const beforeCaps = enhancedText;
+    enhancedText = enhancedText.replace(
+    /(^\s*|[.!?]\s+)([a-z])/g,
+    (m, p1, p2) => p1 + p2.toUpperCase());
+
+    if (beforeCaps !== enhancedText) {
+        improvements.push("Sentence capitalization corrected");
+    }
+
+    // Hiç değişiklik olmadıysa:
+    if (enhancedText === originalText) {
+        return {
+            original: originalText,
+            enhanced: enhancedText,
+            improvements: [],
+            confidence: 100
+        };
+    }
+
+    const confidence = Math.min(100 , 60 + improvements.length * 15);
+
+    return {
+        original : originalText,
+        enhanced: enhancedText,
+        improvements,
+        confidence
+    };
+
+}
+
+
 //PDF oluşturma fonksiyonu:
 async function createPDF(text , title = "OCR Results"){
     return new Promise((resolve , reject) => {
@@ -346,6 +406,23 @@ app.post("/api/generate-pdf" , upload.single("document") , async (req , res) => 
     }
 });
 
+//Metin Iyileştirme Endpointi:
+app.post("/api/enhance-text", (req, res) => {
+  const { text } = req.body;
+
+  if (!text || text.trim().length === 0) {
+    return res.status(400).json({ error: "Text is required" });
+  }
+
+  const result = enhanceOCRText(text);
+
+  res.json({
+    success: true,
+    enhancement: result
+  });
+});
+
+
 
 //Resim yükleme endpointi:
 app.post("/api/upload" , upload.single("document") , async(req , res) => {
@@ -370,17 +447,43 @@ app.post("/api/upload" , upload.single("document") , async(req , res) => {
       const ocrResult = await extractTextFromImage(uploadedFile.path);
       console.log("OCR Completed");
 
+      //Metin Iyileştirme:
+      let enhancementResult = null;
+      if (ocrResult.success && ocrResult.hasText) {
+        try {
+            console.log("Enhancing OCR text...");
+            enhancementResult = enhanceOCRText(ocrResult.text);
+            console.log("Text enhancement completed.");
+
+            
+        } catch (enhanceError) {
+            console.log("Text enhancement skipped: " , enhanceError.message);
+        }
+      }
+
       //PDF Oluşturma:
       let pdfResult = null;
       if (ocrResult.success && ocrResult.hasText) {
         try {
-            pdfResult = await createPDF(ocrResult.text , `Scanned Document - ${uploadedFile.originalname}`);
+            const textForPDF = enhancementResult ? enhancementResult.enhanced : ocrResult.text;
+            pdfResult = await createPDF(textForPDF , `Scanned Document - ${uploadedFile.originalname}`);
             console.log("PDF automatically created");
 
         } catch (pdfError) {
             console.error("Automatic PDF creation error:" , pdfError);
         }
       } 
+
+    //   //Iyileştirme Sonucları:
+    //     if (enhancementResult) {
+    //         response.enhancement = enhancementResult;
+    //     }
+
+    //     //PDF Bilgileri:
+    //     if (pdfResult) {
+    //         response.pdf = pdfResult;
+    //     }
+
 
         res.json({
             success: true,
@@ -395,6 +498,8 @@ app.post("/api/upload" , upload.single("document") , async(req , res) => {
             analysis: analysis, //Analiz sonuçlarını da gönderiyoruz
             ocr: ocrResult
         });
+        
+        
     }catch (error) {
         console.error("Error during file upload: " , error);
         res.status(500).json({ 

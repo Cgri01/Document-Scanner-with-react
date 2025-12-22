@@ -11,7 +11,9 @@ function App() {
   const [isLoading , setIsLoading] = useState(false);
   const [showCamera , setShowCamera] = useState(false);
   const [pdfInfo , setPdfInfo] = useState(null);
-  const [isGeneratingPDF , setIsGeneratingPDF] = useState (false);
+  const [isGeneratingPDF , setIsGeneratingPDF] = useState(false);
+  const [showEnhancedText, setShowEnhancedText] = useState(false);
+  const [isEnhancing , setIsEnhancing] = useState(false);
 
   const fileInputRef = useRef();
 
@@ -90,6 +92,51 @@ function App() {
   //Kamera Açma butonu:
   const handleCameraClick = () => {
     setShowCamera(true);
+  };
+
+  //Metin Iyileştirme Fonksiyonu:
+  const enhanceText = async () => {
+  if (!uploadResult || !uploadResult.ocr || !uploadResult.ocr.text) {
+    alert("Please upload a file and complete OCR first");
+    return;
+  }
+
+  setIsEnhancing(true);
+
+  try {
+    const response = await axios.post("http://localhost:5000/api/enhance-text", {
+      text: uploadResult.ocr.text
+    });
+
+    const enhancement = response.data.enhancement;
+
+    // Eğer metin zaten temizse kullanıcıya dürüst ol
+    if (!enhancement || enhancement.enhanced === uploadResult.ocr.text) {
+      alert("Text is already clean. No improvement needed.");
+      setIsEnhancing(false);
+      return;
+    }
+
+    // State'e kaydet
+    setUploadResult(prev => ({
+      ...prev,
+      enhancement
+    }));
+
+    setShowEnhancedText(true);
+
+  } catch (error) {
+    console.error("Text enhancement error:", error);
+    alert("Text enhancement failed: " + error.message);
+  } finally {
+    setIsEnhancing(false);
+  }
+};
+
+
+  //Orijinal ve iyileştirilmiş metin arası geçiş. 
+  const toggleTextVersion = () => {
+  setShowEnhancedText(!showEnhancedText);
   };
 
   // PDF Oluşturma fonksiyonu:
@@ -266,15 +313,77 @@ function App() {
 
                   {/* Tanınan Metin */}
                   <div className="extracted-text">
-                    <h5>Extracted Text:</h5>
-                    <div className="text-container">
-                      {uploadResult.ocr.success && uploadResult.ocr.text ? (
-                        <pre className="recognized-text"> {uploadResult.ocr.text} </pre>
-                      ) : (
-                        <p className="no-text"> Text not recognized or text not found in image </p>
+                    <div className="text-header">
+                      <h5>Extracted Text:</h5>
+                      
+                      {/* Metin iyileştirme butonları */}
+                      {uploadResult.ocr.success && uploadResult.ocr.hasText && (
+                        <div className="text-actions">
+                          <button 
+                            className="enhance-btn"
+                            onClick={enhanceText}
+                            disabled={isEnhancing || uploadResult.enhancement}
+                          >
+                            {isEnhancing ? '✨ Enhancing...' : 
+                            uploadResult.enhancement ? '✅ Enhanced' : '✨ Enhance Text'}
+                          </button>
+                          
+                          {uploadResult.enhancement && (
+                            <button 
+                              className="toggle-btn"
+                              onClick={toggleTextVersion}
+                            >
+                              {showEnhancedText ? '📄 Show Original' : '✨ Show Enhanced'}
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
+                    
+                    <div className="text-container">
+                      {uploadResult.ocr.success && uploadResult.ocr.text ? (
+                        <div>
+                          {/* Hangi versiyonu göstereceğimiz */}
+                          <pre className="recognized-text">
+                            {showEnhancedText && uploadResult.enhancement 
+                              ? uploadResult.enhancement.enhanced 
+                              : uploadResult.ocr.text}
+                          </pre>
+                          
+                          {/* İyileştirme istatistikleri */}
+                          {uploadResult.enhancement && showEnhancedText && (
+                            <div className="enhancement-stats">
+                              <div className="stat-item">
+                                <span className="stat-label">Improvements:</span>
+                                <span className="stat-value">{uploadResult.enhancement.improvements.length}</span>
+                              </div>
+                              <div className="stat-item">
+                                <span className="stat-label">Confidence:</span>
+                                <span className={`stat-value confidence-${Math.floor(uploadResult.enhancement.confidence / 20)}`}>
+                                  {uploadResult.enhancement.confidence}%
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="no-text">Text not recognized or text not found in image</p>
+                      )}
+                    </div>
+                    
+                    {/* İyileştirme detayları */}
+                    {uploadResult.enhancement && showEnhancedText && uploadResult.enhancement.improvements.length > 0 && (
+                      <div className="improvements-list">
+                        <h6>✨ Applied Improvements:</h6>
+                        <ul>
+                          {uploadResult.enhancement.improvements.map((improvement, index) => (
+                            <li key={index}>✅ {improvement}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
+
 
                   {/* PDF Export */}
                   {uploadResult.ocr.success && uploadResult.ocr.text && (
