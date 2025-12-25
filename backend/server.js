@@ -190,16 +190,50 @@ async function extractTextFromImage(imagePath) {
 
 //Dil tespit fonksiyonu:
 function detectLanguge(text) {
-    const turkishChars = /[çğıöşüÇĞİÖŞÜ]/;
-    const englishCommon = /\b(the|and|is|in|to|of|that|it|you|he|for|with|but|on|at|she|her|him|his|are|or)\b/gi;
-
-    const turkishCount = (text.match(turkishChars) || []).length;
-    const englishCount = (text.match(englishCommon) || []).length;
+    if (!text || text.length < 10) return 'unknown';
     
-    if (turkishCount > englishCount * 2) return 'Turkish';
-    if (englishCount > turkishCount * 2) return 'English';
-    return 'Unknown';
+    // Türkçe karakter regex'leri
+    const turkishPatterns = [
+        /[çğıöşüÇĞİÖŞÜ]/g,
+        /\b(ve|bir|bu|ile|için|olarak|ama|çok|ben|sen|o|biz|siz|onlar)\b/gi,
+        /\b(bu|şu|o|benim|senin|onun|bizim|sizin|onların)\b/gi
+    ];
+    
+    // İngilizce karakter regex'leri
+    const englishPatterns = [
+        /\b(the|and|is|in|to|of|that|it|you|he|for|with|but|on|at|she|her|him|his|are|or)\b/gi,
+        /\b(this|that|these|those|my|your|his|her|our|their)\b/gi
+    ];
+    
+    let turkishScore = 0;
+    let englishScore = 0;
+    
+    // Türkçe puanını hesapla
+    turkishPatterns.forEach(pattern => {
+        const matches = text.match(pattern);
+        if (matches) turkishScore += matches.length;
+    });
+    
+    // İngilizce puanını hesapla
+    englishPatterns.forEach(pattern => {
+        const matches = text.match(pattern);
+        if (matches) englishScore += matches.length;
+    });
+    
+    // Özel Türkçe kelime kontrolü
+    const specialTurkishWords = ['ğ', 'ü', 'ş', 'ı', 'ö', 'ç', 'Ğ', 'Ü', 'Ş', 'İ', 'Ö', 'Ç'];
+    specialTurkishWords.forEach(char => {
+        if (text.includes(char)) turkishScore += 5;
+    });
+    
+    // Karar verme
+    if (turkishScore > englishScore * 1.5) return 'turkish';
+    if (englishScore > turkishScore * 1.5) return 'english';
+    if (turkishScore > 0 && englishScore > 0) return 'mixed';
+    
+    return 'unknown';
 }
+
 
 //Basit görüntü analizi:
 async function analyzeImage(imagePath) {
@@ -286,55 +320,315 @@ function enhanceOCRText(text) {
             original: text,
             enhanced: text,
             improvements: [],
-            confidence: 0
+            confidence: 0,
+            detectedLanguage: 'unknown',
+            wordCount: 0,
+            characterCount: 0
         };
     }
 
     const originalText = text;
     let enhancedText = text;
     const improvements = [];
+    
+    // İstatistikler
+    const wordCount = enhancedText.split(/\s+/).filter(word => word.length > 0).length;
+    const characterCount = enhancedText.replace(/\s+/g, '').length;
+    
+    // Dil tespiti (gelişmiş)
+    const detectedLanguage = detectLanguge(enhancedText);
 
-    //Gereksiz boşlukları temizleme
+    // 1. GEREKSİZ BOŞLUKLARI TEMİZLEME
     const beforeSpacing = enhancedText;
     enhancedText = enhancedText
-    .replace(/[ \t]+/g, ' ')
-    .replace(/\s+\./g, '.')
-    .replace(/\s+,/g, ',')
-    .trim();    
+        .replace(/[ \t]+/g, ' ') // Çoklu boşlukları tek boşluğa çevir
+        .replace(/\s+\./g, '.')  // Noktadan önceki boşlukları kaldır
+        .replace(/\s+,/g, ',')   // Virgülden önceki boşlukları kaldır
+        .replace(/\.\s*,/g, ',') // "nokta virgül" hatasını düzelt
+        .replace(/\n\s*\n\s*\n+/g, '\n\n') // Çoklu boş satırları iki satıra indir
+        .replace(/^\s+|\s+$/gm, '') // Her satırın başındaki ve sonundaki boşlukları temizle
+        .trim();
 
     if (beforeSpacing !== enhancedText) {
-        improvements.push("Extra spaces removed");
+        improvements.push("Extra spaces and line breaks cleaned");
     }
 
-    //Cümle başı büyük harf yapma
-    const beforeCaps = enhancedText;
-    enhancedText = enhancedText.replace(
-    /(^\s*|[.!?]\s+)([a-z])/g,
-    (m, p1, p2) => p1 + p2.toUpperCase());
-
-    if (beforeCaps !== enhancedText) {
-        improvements.push("Sentence capitalization corrected");
-    }
-
-    // Hiç değişiklik olmadıysa:
-    if (enhancedText === originalText) {
-        return {
-            original: originalText,
-            enhanced: enhancedText,
-            improvements: [],
-            confidence: 100
-        };
-    }
-
-    const confidence = Math.min(100 , 60 + improvements.length * 15);
-
-    return {
-        original : originalText,
-        enhanced: enhancedText,
-        improvements,
-        confidence
+    // 2. HARF-RAKAM KARIŞIKLIĞI DÜZELTME (GENİŞLETİLMİŞ)
+    const beforeCharFix = enhancedText;
+    
+    // Rakam-harf karışıklığı düzeltmeleri
+    const charReplacements = {
+        '0': ['o', 'O'],
+        '1': ['l', 'I', 'i'],
+        '2': ['z', 'Z'],
+        '3': ['e', 'E'],
+        '5': ['s', 'S'],
+        '6': ['b', 'B'],
+        '8': ['B'],
+        '9': ['g', 'q']
     };
+    
+    // Türkçe karakter düzeltmeleri
+    enhancedText = enhancedText
+        .replace(/ı/g, 'i') // Küçük ı -> i (OCR hatası)
+        .replace(/İ/g, 'I') // Büyük İ -> I
+        .replace(/ş/g, 's') // ş -> s (İngilizce OCR'da)
+        .replace(/Ş/g, 'S')
+        .replace(/ç/g, 'c')
+        .replace(/Ç/g, 'C')
+        .replace(/ğ/g, 'g')
+        .replace(/Ğ/g, 'G')
+        .replace(/ö/g, 'o')
+        .replace(/Ö/g, 'O')
+        .replace(/ü/g, 'u')
+        .replace(/Ü/g, 'U');
+    
+    // Kelime içindeki rakamları düzelt
+    enhancedText = enhancedText
+        .replace(/([a-zA-Z])0([a-zA-Z])/g, '$1o$2')
+        .replace(/([a-zA-Z])1([a-zA-Z])/g, '$1l$2')
+        .replace(/([a-zA-Z])5([a-zA-Z])/g, '$1s$2')
+        .replace(/^0/g, 'O') // Satır başındaki 0 -> O
+        .replace(/\s0\s/g, ' o '); // Tek başına 0 -> o
 
+    if (beforeCharFix !== enhancedText) {
+        improvements.push("OCR character recognition errors corrected");
+    }
+
+    // 3. TARİH VE SAAT FORMATLARINI STANDARTLAŞTIRMA
+    const beforeDate = enhancedText;
+    
+    // Tarih formatları
+    enhancedText = enhancedText
+        .replace(/(\d{1,2})\s*[\.\/\-]\s*(\d{1,2})\s*[\.\/\-]\s*(\d{2,4})/g, '$1/$2/$3')
+        .replace(/(\d{4})\s*[\.\/\-]\s*(\d{1,2})\s*[\.\/\-]\s*(\d{1,2})/g, '$1/$2/$3')
+        .replace(/(\d{1,2})\s*(Ocak|Şubat|Mart|Nisan|Mayıs|Haziran|Temmuz|Ağustos|Eylül|Ekim|Kasım|Aralık|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s*(\d{4})/gi, '$1 $2 $3');
+    
+    // Saat formatları
+    enhancedText = enhancedText
+        .replace(/(\d{1,2})\s*[\.\:]\s*(\d{2})\s*(am|pm|AM|PM)?/g, (match, hour, minute, period) => {
+            const h = hour.padStart(2, '0');
+            const m = minute.padStart(2, '0');
+            return period ? `${h}:${minute} ${period.toLowerCase()}` : `${h}:${minute}`;
+        });
+
+    if (beforeDate !== enhancedText) {
+        improvements.push("Date and time formats standardized");
+    }
+
+    // 4. PARA BİRİMİ VE SAYI FORMATLARI
+    const beforeCurrency = enhancedText;
+    
+    enhancedText = enhancedText
+        .replace(/(\d+)\s*(TL|USD|EUR|GBP|TRY)/gi, '$1 $2')
+        .replace(/(TL|USD|EUR|GBP|TRY)\s*(\d+)/gi, '$1 $2')
+        .replace(/(\d{1,3})(\d{3})/g, (match, p1, p2) => {
+            // Basit binlik ayracı kontrolü (daha karmaşık regex gerekebilir)
+            return match.length > 3 ? match : `${p1},${p2}`;
+        });
+
+    if (beforeCurrency !== enhancedText) {
+        improvements.push("Currency and number formats improved");
+    }
+
+    // 5. EMAIL VE URL DÜZELTMELERİ
+    const beforeWeb = enhancedText;
+    
+    // Email düzeltmeleri
+    enhancedText = enhancedText
+        .replace(/([a-zA-Z0-9._%+-]+)\s*@\s*([a-zA-Z0-9.-]+)\s*\.\s*([a-zA-Z]{2,})/g, '$1@$2.$3')
+        .replace(/\[at\]/g, '@')
+        .replace(/\[dot\]/g, '.');
+    
+    // URL düzeltmeleri
+    enhancedText = enhancedText
+        .replace(/(https?)\s*:\s*\/\s*\/(www\.)?([^\s]+)/g, '$1://$2$3')
+        .replace(/www\s*\.\s*([a-zA-Z0-9.-]+)\s*\.\s*([a-zA-Z]{2,})/g, 'www.$1.$2');
+
+    if (beforeWeb !== enhancedText) {
+        improvements.push("Email and URL formats corrected");
+    }
+
+    // 6. PARAGRAF DÜZENİ
+    const beforeParagraph = enhancedText;
+    
+    // Paragraf sonlarını kontrol et
+    const lines = enhancedText.split('\n');
+    let inParagraph = false;
+    const processedLines = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        const nextLine = lines[i + 1] ? lines[i + 1].trim() : '';
+        
+        if (line.length === 0) {
+            processedLines.push('');
+            inParagraph = false;
+        } else if (!line.endsWith('.') && !line.endsWith('!') && !line.endsWith('?') && 
+                   !line.endsWith(':') && nextLine.length > 0 && 
+                   !nextLine.match(/^[A-Z\d•\-]/) && !inParagraph) {
+            // Satır devam ediyor, birleştir
+            processedLines.push(line + ' ' + nextLine);
+            i++; // Bir sonraki satırı atla
+            inParagraph = true;
+        } else {
+            processedLines.push(line);
+            inParagraph = false;
+        }
+    }
+    
+    enhancedText = processedLines.join('\n');
+
+    if (beforeParagraph !== enhancedText) {
+        improvements.push("Paragraph structure improved");
+    }
+
+    
+
+    // 7. ÖZEL KELİME DÜZELTMELERİ (SÖZLÜK TABANLI)
+    const beforeDict = enhancedText;
+    
+    // Yaygın OCR hataları sözlüğü
+    const commonOCRErrors = {
+        // İngilizce hatalar
+        'recogmze': 'recognize',
+        'mformat10n': 'information',
+        'docurnent': 'document',
+        'scann1ng': 'scanning',
+        'techn010gy': 'technology',
+        '1mportant': 'important',
+        
+        // Türkçe hatalar
+        'b1lg1': 'bilgi',
+        'belge': 'belge',
+        'doküman': 'doküman',
+        'fotogra': 'fotoğraf',
+        'res1m': 'resim',
+        'taray1c1': 'tarayıcı'
+    };
+    
+    // Sözlük düzeltmelerini uygula
+    Object.keys(commonOCRErrors).forEach(error => {
+        const regex = new RegExp(`\\b${error}\\b`, 'gi');
+        enhancedText = enhancedText.replace(regex, commonOCRErrors[error]);
+    });
+
+    if (beforeDict !== enhancedText) {
+        improvements.push("Common OCR word errors fixed using dictionary");
+    }
+
+    // 8. TABLO VE SUTUN DÜZENLEMELERİ
+    const beforeTable = enhancedText;
+    
+    // Dikey hizalanmış metinleri düzeltme (basit tablo düzeltmesi)
+    enhancedText = enhancedText.replace(/(\S+)\s{3,}(\S+)/g, (match, p1, p2) => {
+        // Eğer çok fazla boşluk varsa, tablo hücresi olabilir
+        return match.length > 20 ? `${p1}\t${p2}` : match;
+    });
+
+    if (beforeTable !== enhancedText) {
+        improvements.push("Table-like structures detected and formatted");
+    }
+
+    // 9. KISALTMA VE AKRONİM DÜZENLEMELERİ
+    const beforeAcronym = enhancedText;
+    
+    // Kısaltmaları koru
+    enhancedText = enhancedText
+        .replace(/\b([A-Z])\.\s*([A-Z])\.\s*([A-Z])\./g, '$1.$2.$3.') // U.S.A. -> U.S.A.
+        .replace(/\b([A-Z]{2,})\b\./g, '$1') // USA. -> USA
+        .replace(/\b([a-z])\.\s*([a-z])\./g, '$1.$2.'); // e.g. -> e.g.
+
+    if (beforeAcronym !== enhancedText) {
+        improvements.push("Abbreviations and acronyms standardized");
+    }
+
+    // 10. ÖZEL KARAKTER DÜZENLEMELERİ
+    const beforeSpecial = enhancedText;
+    
+    enhancedText = enhancedText
+        .replace(/[”“]/g, '"') // Akıllı tırnakları standart tırnağa çevir
+        .replace(/[‘’]/g, "'") // Akıllı tek tırnakları standart tek tırnağa çevir
+        .replace(/[—–]/g, '-') // Uzun tireleri kısa tireye çevir
+        .replace(/…/g, '...')   // Üç nokta karakterini standartlaştır
+        .replace(/[«»]/g, '"')  // Açılı tırnakları standart tırnağa çevir
+        .replace(/[•·]/g, '•'); // Madde işaretlerini standartlaştır
+
+    if (beforeSpecial !== enhancedText) {
+        improvements.push("Special characters standardized");
+    }
+
+    // 11. CÜMLE DÜZENLEMELERİ
+    const beforeSentence = enhancedText;
+    
+    // Cümle başı büyük harf
+    enhancedText = enhancedText.replace(
+        /(^\s*|[.!?]\s+)([a-z])/g,
+        (m, p1, p2) => p1 + p2.toUpperCase()
+    );
+    
+
+    
+    // Madde işaretlerini standartlaştırma
+    enhancedText = enhancedText
+        .replace(/^([•\-*\u2022])\s*/gm, '• ')
+        .replace(/^(\d+)[\.\)]\s*/gm, '$1. ')
+        .replace(/^[a-z][\.\)]\s*/gim, (match) => match.toUpperCase());
+
+    if (beforeSentence !== enhancedText) {
+        improvements.push("Sentence structure and capitalization improved");
+    }
+
+
+    // 12. DİL BAZLI ÖZEL DÜZENLEMELER
+    if (detectedLanguage === 'turkish') {
+        const beforeTurkish = enhancedText;
+        
+        // Türkçe özel düzeltmeler
+        enhancedText = enhancedText
+            .replace(/\bve\s+ve\b/gi, 've') // Yinelenen "ve" ler
+            .replace(/ı/g, 'i') // Tekrar kontrol (bazı OCR'lar ı'yı i olarak tanır)
+            .replace(/(\w)\.(\w)/g, '$1. $2'); // Türkçe nokta sonrası boşluk
+        
+        if (beforeTurkish !== enhancedText) {
+            improvements.push("Turkish language specific corrections applied");
+        }
+    }
+
+    // GÜVEN PUANI HESAPLAMA
+    let confidence = 60; // Temel puan
+    
+    // İyileştirme sayısına göre puan ekle
+    confidence += Math.min(improvements.length * 5, 30);
+    
+    // Metin uzunluğuna göre puan ekle
+    if (characterCount > 100) confidence += 5;
+    if (characterCount > 500) confidence += 5;
+    
+    // Kelime başına karakter sayısına göre puan (çok düşük veya çok yüksekse kötü)
+    const avgCharsPerWord = characterCount / Math.max(wordCount, 1);
+    if (avgCharsPerWord > 3 && avgCharsPerWord < 10) confidence += 5;
+    
+    confidence = Math.min(95, confidence); // Maksimum %95
+
+    // SONUÇ DÖNÜŞÜ
+    return {
+        original: originalText,
+        enhanced: enhancedText,
+        improvements: improvements,
+        confidence: Math.round(confidence),
+        detectedLanguage: detectedLanguage,
+        wordCount: wordCount,
+        characterCount: characterCount,
+        avgCharsPerWord: parseFloat(avgCharsPerWord.toFixed(2)),
+        improvementCount: improvements.length,
+        stats: {
+            originalLength: originalText.length,
+            enhancedLength: enhancedText.length,
+            reductionPercentage: originalText.length > 0 ? 
+                Math.round(((originalText.length - enhancedText.length) / originalText.length) * 100) : 0
+        }
+    };
 }
 
 

@@ -115,7 +115,14 @@
     align-items: center;
   }
   
-  .select-btn, .camera-toggle-btn {
+  .select-btn  {
+    padding: auto;
+    width: 100%;
+    max-width: 250px;
+  }
+
+  .camera-toggle-btn {
+    padding: auto;
     width: 100%;
     max-width: 250px;
   }
