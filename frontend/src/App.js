@@ -178,316 +178,519 @@ function App() {
     }
   };
 
+
+  // src/App.js - SADECE RETURN KISMI MODERN
+
   return (
-    
     <div className="App">
-
-    <header className="App-header">
-      <h1>Document Scanner</h1>
-      <p>Select or photo or take a photo</p>
-
-    </header>
-
-    <main className = "main-content">
-      {/* Dosya Seçme Bölümü ve kamera butonu */}
-      <div className="upload-section">
-        
-        <input
-          type="file"
-          ref = {fileInputRef}
-          onChange = {handleFileSelect}
-          accept = "image/*"
-          style = {{display: "none"}}
-        />
-
-        <div className="button-group">
-          <button className = "select-btn" onClick={handleSelectClick}>Choose a file</button>
-          <button className="camera-toggle-btn" onClick={handleCameraClick}>Open Camera</button>
+      {/* Modern Header */}
+      <header className="app-header">
+        <div className="container">
+          <div className="header-content">
+            <h1 className="header-title">
+              <span className="header-icon">📄</span>
+              Document Scanner Pro
+            </h1>
+            <p className="header-subtitle">
+              Upload, scan, and enhance documents Document Scanner Pro
+            </p>
+          </div>
         </div>
+      </header>
 
-
-
-        {/* Seçilen Dosya Bilgisi: */}
-        {selectedFile && (
-          <div className = "file-info">
-            <p> Selected File: <strong>{selectedFile.name}</strong></p>
-            <p> Size: { (selectedFile.size / 1024 / 1024  ).toFixed(2)} MB</p>
-          </div>
-        )}
-
-
-      </div>
-
-      {/* Önizleme */}
-      {previewUrl && (
-        <div className = "preview-section">
-          <h3>Preview:</h3>
-          <div className="image-container">
-            <img
-            src={previewUrl}
-            alt="Choosen Document"
-            className="preview-image"
-
-          />
-          </div>
+      <main className="main-content">
+        <div className="container">
           
-        
-        <button
-          className={`upload-btn ${isLoading ? 'loading' : ''}`}
-          onClick={handleUpload}
-          disabled={isLoading}
+          {/* Upload Section - Modern Card Design */}
+          <section className="card upload-card animate-fadeIn">
+            <div className="card-header">
+              <h2 className="card-title">
+                <span className="card-icon">📤</span>
+                Upload Document
+              </h2>
+              <p className="card-subtitle">
+                Choose a file or capture using camera
+              </p>
+            </div>
 
-          >
+            {/* Hidden File Input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              accept="image/*,.pdf"
+              className="hidden-input"
+            />
 
-            {isLoading ? "Uploading" : "Upload and scan"}
+            {/* Action Buttons */}
+            <div className="action-buttons">
+              <button 
+                className="btn btn-primary btn-lg btn-with-icon"
+                onClick={handleSelectClick}
+              >
+                <span className="btn-icon">📁</span>
+                Choose File
+              </button>
+              
+              <button 
+                className="btn btn-outline-primary btn-lg btn-with-icon"
+                onClick={handleCameraClick}
+              >
+                <span className="btn-icon">📸</span>
+                Open Camera
+              </button>
+            </div>
 
-        </button>
-        </div>
-      )}
+            {/* Selected File Info */}
+            {selectedFile && (
+              <div className="file-info-card">
+                <div className="file-info-header">
+                  <div className="file-icon">📄</div>
+                  <div className="file-details">
+                    <h4 className="file-name">{selectedFile.name}</h4>
+                    <p className="file-meta">
+                      Size: {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  </div>
+                  <button 
+                    className="btn btn-icon btn-sm"
+                    onClick={() => {
+                      setSelectedFile(null);
+                      setPreviewUrl(null);
+                    }}
+                    aria-label="Remove file"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
 
-      {/* Sonuç Bölümü */}
-      {uploadResult && (
-        <div className={`result-section ${uploadResult.success ? 'success' : 'error'}`}>
+          {/* Preview Section */}
+          {previewUrl && (
+            <section className="card preview-card animate-fadeIn">
+              <h2 className="section-title">
+                <span className="section-icon">👁️</span>
+                Document Preview
+              </h2>
+              
+              <div className="preview-container">
+                <div className="image-wrapper">
+                  <img
+                    src={previewUrl}
+                    alt="Document preview"
+                    className="preview-image"
+                  />
+                </div>
+              </div>
+              
+              <div className="preview-actions">
+                <button
+                  className={`btn btn-success btn-lg btn-full ${isLoading ? 'loading' : ''}`}
+                  onClick={handleUpload}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <span className="spinner"></span>
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <span className="btn-icon">🚀</span>
+                      Upload & Scan Document
+                    </>
+                  )}
+                </button>
+              </div>
+            </section>
+          )}
 
-          <h3>Result: </h3>
-          {uploadResult.success ? (
-            <div className="analysis-results">
+          {/* Results Section */}
+          {uploadResult && (
+            <section className="card results-card animate-fadeIn">
+              {/* Success/Error Header */}
+              <div className={`result-header ${uploadResult.success ? 'success' : 'error'}`}>
+                {uploadResult.success ? (
+                  <>
+                    <span className="result-icon">✅</span>
+                    <h2 className="result-title">Document Analysis Complete</h2>
+                    <p className="result-subtitle">
+                      Your document has been successfully processed
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <span className="result-icon">❌</span>
+                    <h2 className="result-title">Upload Failed</h2>
+                    <p className="result-subtitle">{uploadResult.error}</p>
+                  </>
+                )}
+              </div>
 
-              <p>{uploadResult.message}</p>
-              <p>File: {uploadResult.file.originalname}</p>
-              <p>Size: {(uploadResult.file.size / 1024 /1024).toFixed(2)} MB </p>
-
-              {/* Analiz Sonucları */}
-              {uploadResult && uploadResult.success && uploadResult.analysis && (
-                <div className="analysis-details">
-                  <h4>Image Analysis</h4>
-
-                  <div className="analysis-grid">
-                    <div className="analysis-item">
-
-                      <strong>Resolution:</strong>
-                      <span>{uploadResult.analysis.dimensions.width} x {uploadResult.analysis.dimensions.height}</span>
-                      <span>({uploadResult.analysis.dimensions.megapixels} MP)</span>
-
+              {/* Only show detailed results if successful */}
+              {uploadResult.success && (
+                <>
+                  {/* File Info Summary */}
+                  <div className="file-summary-grid">
+                    <div className="summary-item">
+                      <span className="summary-label">File Name</span>
+                      <span className="summary-value">{uploadResult.file.originalname}</span>
                     </div>
-
-                    <div className="analysis-item">
-                      <strong>Quality Score:</strong>
-                      <span className={`score-${Math.floor(uploadResult.analysis.quality.score / 20)}`}>
-                        {uploadResult.analysis.quality.score} / 100
+                    <div className="summary-item">
+                      <span className="summary-label">File Size</span>
+                      <span className="summary-value">
+                        {(uploadResult.file.size / 1024 / 1024).toFixed(2)} MB
                       </span>
                     </div>
-
-                    <div className="analysis-item">
-                      <strong>Brightness:</strong>
-                      <span>{uploadResult.analysis.quality.brightness}</span>
-                    </div>
-
-                    <div className="analysis-item">
-                      <strong>Contrast:</strong>
-                      <span>{uploadResult.analysis.quality.contrast}</span>
-                    </div>
-
-                  </div>
-
-              {/* OCR Sonucları */}
-              {uploadResult && uploadResult.success && uploadResult.ocr &&  (
-                <div className="ocr-results">
-
-                  <h4>Text Detection Results</h4>
-
-                  <div className="ocr-stats">
-                    <div className="ocr-stat">
-                      <strong>Detection Reliability:</strong>
-                      <span className={`confidence-${Math.floor(uploadResult.ocr.confidence / 20)}`}> 
-                        {uploadResult.ocr.confidence}%
+                    <div className="summary-item">
+                      <span className="summary-label">Upload Time</span>
+                      <span className="summary-value">
+                        {new Date().toLocaleTimeString()}
                       </span>
                     </div>
-
-                    <div className="ocr-stat">
-                      <strong>Languages:</strong>
-                      <span>{uploadResult.ocr.language || "english"}</span>
-                    </div>
-
                   </div>
 
-                  {/* Tanınan Metin */}
-                  <div className="extracted-text">
-                    <div className="text-header">
-                      <h5>Extracted Text:</h5>
+                  {/* Analysis Results */}
+                  {uploadResult.analysis && (
+                    <div className="analysis-section">
+                      <h3 className="section-title">
+                        <span className="section-icon">📊</span>
+                        Image Analysis
+                      </h3>
                       
-                      {/* Metin iyileştirme butonları */}
-                      {uploadResult.ocr.success && uploadResult.ocr.hasText && (
-                        <div className="text-actions">
-                          <button 
-                            className="enhance-btn"
-                            onClick={enhanceText}
-                            disabled={isEnhancing || uploadResult.enhancement}
-                          >
-                            {isEnhancing ? '✨ Enhancing...' : 
-                            uploadResult.enhancement ? '✅ Enhanced' : '✨ Enhance Text'}
-                          </button>
-                          
-                          {uploadResult.enhancement && (
-                            <button 
-                              className="toggle-btn"
-                              onClick={toggleTextVersion}
-                            >
-                              {showEnhancedText ? '📄 Show Original' : '✨ Show Enhanced'}
-                            </button>
-                          )}
+                      <div className="metrics-grid">
+                        <div className="metric-card">
+                          <div className="metric-header">
+                            <span className="metric-icon">🖼️</span>
+                            <h4 className="metric-title">Resolution</h4>
+                          </div>
+                          <div className="metric-value">
+                            {uploadResult.analysis.dimensions.width} × {uploadResult.analysis.dimensions.height}
+                          </div>
+                          <div className="metric-subtext">
+                            ({uploadResult.analysis.dimensions.megapixels} MP)
+                          </div>
+                        </div>
+
+                        <div className="metric-card">
+                          <div className="metric-header">
+                            <span className="metric-icon">⭐</span>
+                            <h4 className="metric-title">Quality Score</h4>
+                          </div>
+                          <div className={`metric-value score-${Math.floor(uploadResult.analysis.quality.score / 20)}`}>
+                            {uploadResult.analysis.quality.score}
+                            <span className="metric-unit">/100</span>
+                          </div>
+                          <div className="quality-bar">
+                            <div 
+                              className="quality-fill"
+                              style={{ width: `${uploadResult.analysis.quality.score}%` }}
+                            ></div>
+                          </div>
+                        </div>
+
+                        <div className="metric-card">
+                          <div className="metric-header">
+                            <span className="metric-icon">☀️</span>
+                            <h4 className="metric-title">Brightness</h4>
+                          </div>
+                          <div className="metric-value">
+                            {uploadResult.analysis.quality.brightness}
+                          </div>
+                        </div>
+
+                        <div className="metric-card">
+                          <div className="metric-header">
+                            <span className="metric-icon">🎨</span>
+                            <h4 className="metric-title">Contrast</h4>
+                          </div>
+                          <div className="metric-value">
+                            {uploadResult.analysis.quality.contrast}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Detection Status */}
+                      <div className={`detection-status ${uploadResult.analysis.detected ? 'detected' : 'not-detected'}`}>
+                        <div className="status-icon">
+                          {uploadResult.analysis.detected ? '✅' : '⚠️'}
+                        </div>
+                        <div className="status-content">
+                          <h4>Document Detection</h4>
+                          <p>
+                            {uploadResult.analysis.detected 
+                              ? "Document successfully detected in image"
+                              : "Unable to detect document clearly"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Edge Detection */}
+                      {uploadResult.analysis.edgeDetection && uploadResult.analysis.edgeDetection.detected && (
+                        <div className="edge-detection-section">
+                          <h4 className="section-subtitle">Edge Detection</h4>
+                          <div className="edge-image-wrapper">
+                            <img 
+                              src={`http://localhost:5000${uploadResult.analysis.edgeDetection.edgesUrl}`}
+                              alt="Edge detection result"
+                              className="edge-image"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Suggestions */}
+                      {uploadResult.analysis.suggestions.length > 0 && (
+                        <div className="suggestions-box">
+                          <h4 className="section-subtitle">
+                            <span className="suggestion-icon">💡</span>
+                            Suggestions for Improvement
+                          </h4>
+                          <ul className="suggestions-list">
+                            {uploadResult.analysis.suggestions.map((suggestion, index) => (
+                              <li key={index} className="suggestion-item">
+                                <span className="check-icon">✓</span>
+                                {suggestion}
+                              </li>
+                            ))}
+                          </ul>
                         </div>
                       )}
                     </div>
-                    
-                    <div className="text-container">
-                      {uploadResult.ocr.success && uploadResult.ocr.text ? (
-                        <div>
-                          {/* Hangi versiyonu göstereceğimiz */}
-                          <pre className="recognized-text">
-                            {showEnhancedText && uploadResult.enhancement 
-                              ? uploadResult.enhancement.enhanced 
-                              : uploadResult.ocr.text}
-                          </pre>
-                          
-                          {/* İyileştirme istatistikleri */}
-                          {uploadResult.enhancement && showEnhancedText && (
-                            <div className="enhancement-stats">
-                              <div className="stat-item">
-                                <span className="stat-label">Improvements:</span>
-                                <span className="stat-value">{uploadResult.enhancement.improvements.length}</span>
-                              </div>
-                              <div className="stat-item">
-                                <span className="stat-label">Confidence:</span>
-                                <span className={`stat-value confidence-${Math.floor(uploadResult.enhancement.confidence / 20)}`}>
-                                  {uploadResult.enhancement.confidence}%
-                                </span>
-                              </div>
+                  )}
+
+                  {/* OCR Results */}
+                  {uploadResult.ocr && (
+                    <div className="ocr-section">
+                      <div className="section-header">
+                        <h3 className="section-title">
+                          <span className="section-icon">🔤</span>
+                          Text Recognition (OCR)
+                        </h3>
+                        <div className="ocr-stats">
+                          <div className="ocr-stat">
+                            <span className="stat-label">Confidence:</span>
+                            <span className={`stat-value confidence-${Math.floor(uploadResult.ocr.confidence / 20)}`}>
+                              {uploadResult.ocr.confidence}%
+                            </span>
+                          </div>
+                          <div className="ocr-stat">
+                            <span className="stat-label">Language:</span>
+                            <span className="stat-value">
+                              {uploadResult.ocr.language || "English"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Extracted Text */}
+                      <div className="extracted-text-section">
+                        <div className="text-header">
+                          <h4 className="text-title">Extracted Text</h4>
+                          <div className="text-actions">
+                            {uploadResult.ocr.success && uploadResult.ocr.hasText && (
+                              <>
+                                <button
+                                  className={`btn btn-sm ${uploadResult.enhancement ? 'btn-success' : 'btn-primary'}`}
+                                  onClick={enhanceText}
+                                  disabled={isEnhancing || uploadResult.enhancement}
+                                >
+                                  {isEnhancing ? (
+                                    <>
+                                      <span className="spinner-sm"></span>
+                                      Enhancing...
+                                    </>
+                                  ) : uploadResult.enhancement ? (
+                                    <>
+                                      <span className="btn-icon">✅</span>
+                                      Enhanced
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span className="btn-icon">✨</span>
+                                      Enhance Text
+                                    </>
+                                  )}
+                                </button>
+                                
+                                {uploadResult.enhancement && (
+                                  <button
+                                    className="btn btn-sm btn-outline-primary"
+                                    onClick={toggleTextVersion}
+                                  >
+                                    {showEnhancedText ? (
+                                      <>
+                                        <span className="btn-icon">📄</span>
+                                        Show Original
+                                      </>
+                                    ) : (
+                                      <>
+                                        <span className="btn-icon">✨</span>
+                                        Show Enhanced
+                                      </>
+                                    )}
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="text-container">
+                          {uploadResult.ocr.success && uploadResult.ocr.text ? (
+                            <div className="text-content">
+                              <pre className="recognized-text">
+                                {showEnhancedText && uploadResult.enhancement 
+                                  ? uploadResult.enhancement.enhanced 
+                                  : uploadResult.ocr.text}
+                              </pre>
+                              
+                              {/* Enhancement Stats */}
+                              {uploadResult.enhancement && showEnhancedText && (
+                                <div className="enhancement-stats">
+                                  <div className="enhancement-stat">
+                                    <span className="stat-label">Improvements:</span>
+                                    <span className="stat-value">
+                                      {uploadResult.enhancement.improvements.length}
+                                    </span>
+                                  </div>
+                                  <div className="enhancement-stat">
+                                    <span className="stat-label">Confidence:</span>
+                                    <span className={`stat-value confidence-${Math.floor(uploadResult.enhancement.confidence / 20)}`}>
+                                      {uploadResult.enhancement.confidence}%
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="no-text-message">
+                              <span className="no-text-icon">🔍</span>
+                              <p>No text detected in the image</p>
                             </div>
                           )}
                         </div>
-                      ) : (
-                        <p className="no-text">Text not recognized or text not found in image</p>
-                      )}
-                    </div>
-                    
-                    {/* İyileştirme detayları */}
-                    {uploadResult.enhancement && showEnhancedText && uploadResult.enhancement.improvements.length > 0 && (
-                      <div className="improvements-list">
-                        <h6>✨ Applied Improvements:</h6>
-                        <ul>
-                          {uploadResult.enhancement.improvements.map((improvement, index) => (
-                            <li key={index}>✅ {improvement}</li>
-                          ))}
-                        </ul>
+
+                        {/* Improvements List */}
+                        {uploadResult.enhancement && 
+                        showEnhancedText && 
+                        uploadResult.enhancement.improvements.length > 0 && (
+                          <div className="improvements-list">
+                            <h5 className="improvements-title">
+                              <span className="improvements-icon">✨</span>
+                              Applied Improvements
+                            </h5>
+                            <ul className="improvements-items">
+                              {uploadResult.enhancement.improvements.map((improvement, index) => (
+                                <li key={index} className="improvement-item">
+                                  <span className="improvement-icon">✓</span>
+                                  {improvement}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
 
+                      {/* OCR Info Note */}
+                      <div className="ocr-note">
+                        <span className="note-icon">ℹ️</span>
+                        <p>
+                          OCR accuracy depends on image quality, lighting, and font clarity.
+                          For best results, ensure documents are well-lit and in focus.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
-                  {/* PDF Export */}
-                  {uploadResult.ocr.success && uploadResult.ocr.text && (
+                  {/* PDF Export Section */}
+                  {uploadResult.ocr?.success && uploadResult.ocr.text && (
                     <div className="pdf-section">
-                      <h5> PDF Export</h5>
-                      <div className="pdf-buttons">
-                        <button className="pdf-btn simple-pdf" onClick={ () => generatePDF("simple")} disabled = {isGeneratingPDF}>
-                          {isGeneratingPDF ? '⏳ Creating...' : ' Create PDF'}
+                      <h3 className="section-title">
+                        <span className="section-icon">📄</span>
+                        Export as PDF
+                      </h3>
+                      
+                      <div className="pdf-actions">
+                        <button
+                          className="btn btn-primary btn-with-icon"
+                          onClick={() => generatePDF('simple')}
+                          disabled={isGeneratingPDF}
+                        >
+                          {isGeneratingPDF ? (
+                            <>
+                              <span className="spinner-sm"></span>
+                              Creating PDF...
+                            </>
+                          ) : (
+                            <>
+                              <span className="btn-icon">🖨️</span>
+                              Create PDF Document
+                            </>
+                          )}
                         </button>
                       </div>
 
-                      {/* PDF Bilgisi */}
+                      {/* PDF Info */}
                       {pdfInfo && (
-                        <div className="pdf-info">
-                          <p> PDF Created successfully!!!</p>
-                          <button className="download*btn" onClick={downloadPDF}>
-                            Download Pdf
-                          </button>
-                          <span className="pdf-filename">{pdfInfo.filename}</span>
-
+                        <div className="pdf-info-card">
+                          <div className="pdf-success-message">
+                            <span className="success-icon">✅</span>
+                            <div>
+                              <h4 className="success-title">PDF Created Successfully!</h4>
+                              <p className="success-subtitle">
+                                Your document has been converted to PDF format
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="pdf-actions">
+                            <button 
+                              className="btn btn-success btn-with-icon"
+                              onClick={downloadPDF}
+                            >
+                              <span className="btn-icon">⬇️</span>
+                              Download PDF
+                            </button>
+                            <span className="pdf-filename">
+                              {pdfInfo.filename}
+                            </span>
+                          </div>
                         </div>
                       )}
-
                     </div>
                   )}
-
-                  {/* OCR Bilgisi */}
-                  <div className="ocr-info">
-                    <p> <strong>Note:</strong> OCR accuracy depends on image quality, lighting, and font</p>
-                  </div>
-
-                </div>
+                </>
               )}
-              
-
-
-
-                  {/* Kenar Tespiti */}
-                  {uploadResult.analysis.edgeDetection && uploadResult.analysis.edgeDetection.detected && (
-                    <div className="edge-detection-section">
-
-                      <h5>Edge Detection Result:</h5>
-                      <div className="edge-image-container">
-
-                        <img 
-                          src={`http://localhost:5000${uploadResult.analysis.edgeDetection.edgesUrl}`}
-                          alt="Edge detection result"
-                          className="edge-image"
-                        />
-
-                      </div>
-
-                      <p className="edge-description"> The result of the document's edge detection is shown above.</p>
-
-                    </div>
-                  )}
-
-                  {/* Öneriler: */}
-                  {uploadResult.analysis.suggestions.length > 0 && (
-                    <div className="suggestions">
-                      <h5>Suggestions for improvement:</h5>
-                      <ul>
-                        {uploadResult.analysis.suggestions.map((suggestions , index) => (
-                          <li key={index}>{suggestions}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Tespit Durumu */}
-                  <div className="detection-status">
-                    <strong>Document status:</strong>
-                    <span className={uploadResult.analysis.detected ? "detected" : "not-detected"}>
-                      {uploadResult.analysis.detected ? "Image quality is sufficient for document scanning." : "Document could not be detected."}
-                    </span>
-                  </div>
-
-                </div>
-              )}
-
-            </div>
-          ) : (
-
-            <p>{uploadResult.error}</p>
-
+            </section>
           )}
 
+          {/* Camera Component */}
+          {showCamera && (
+            <Camera
+              onCapture={handleCameraCapture}
+              onClose={() => setShowCamera(false)}
+            />
+          )}
         </div>
-      )}
+      </main>
 
-      {/* Kamera Bileşeni */}
-      {showCamera && (
-        <Camera
-          onCapture={handleCameraCapture}
-          onClose={() => setShowCamera(false)}
-        />
-      )}
-
-
-
-    </main>
-      
+      {/* Footer */}
+      <footer className="app-footer">
+        <div className="container">
+          <div className="footer-content">
+            <p className="footer-text">
+              Document Scanner Pro © {new Date().getFullYear()}
+            </p>
+            <p className="footer-subtext">
+              Document Processing System
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
-
   );
 
   }
