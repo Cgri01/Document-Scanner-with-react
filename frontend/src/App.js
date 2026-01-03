@@ -189,10 +189,10 @@ function App() {
           <div className="header-content">
             <h1 className="header-title">
               <span className="header-icon">📄</span>
-              Document Scanner Pro
+              Document Scanner 
             </h1>
             <p className="header-subtitle">
-              Upload, scan, and enhance documents Document Scanner Pro
+              Upload, scan, and enhance documents Document Scanner 
             </p>
           </div>
         </div>
@@ -682,7 +682,7 @@ function App() {
         <div className="container">
           <div className="footer-content">
             <p className="footer-text">
-              Document Scanner Pro © {new Date().getFullYear()}
+              Document Scanner © {new Date().getFullYear()}
             </p>
             <p className="footer-subtext">
               Document Processing System
